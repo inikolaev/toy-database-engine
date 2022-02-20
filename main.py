@@ -1,3 +1,4 @@
+from functools import cmp_to_key
 from typing import Callable, Optional, Any
 
 
@@ -17,18 +18,7 @@ class Record(dict):
     def __setitem__(self, key, value):
         raise NotImplemented('Record is immutable')
 
-    def __getitem__(self, name: str) -> Any:
-        if name in self.__aliases_to_columns:
-            name = self.__aliases_to_columns[name]
-
-        record = self
-        path = name.split('.')
-        for item in path[:-1]:
-            record = record.get(item)
-
-        return record.get(path[-1])
-
-    def get(self, name: str) -> Any | None:
+    def __getitem__(self, name: str) -> Optional[Any]:
         if name in self.__aliases_to_columns:
             name = self.__aliases_to_columns[name]
 
@@ -37,10 +27,16 @@ class Record(dict):
         for item in path[:-1]:
             record = super(Record, record).get(item)
 
+            if record is None:
+                return None
+
         return super(Record, record).get(path[-1])
 
-    def __getattr__(self, path: str) -> Optional[Any]:
-        return self.get(path)
+    def get(self, name: str) -> Any | None:
+        return self[name]
+
+    def __getattr__(self, name: str) -> Optional[Any]:
+        return self[name]
 
     def __repr__(self):
         values = {
@@ -60,18 +56,14 @@ class Record(dict):
                 names.add(key)
         return names
 
+    @staticmethod
+    def from_dict(root: dict) -> 'Record':
+        return Record({
+            name: Record.from_dict(value) if isinstance(value, dict) else value
+            for name, value in root.items()
+        })
 
-Table = set[Record]
-Condition = Callable[[Record], bool]
-BiCondition = Callable[[Record, Record], bool]
-
-
-def select(table: Table, predicate: Condition) -> Table:
-    return Table(filter(predicate, table))
-
-
-def projection(table: Table, columns: set[str]) -> Table:
-    def create_record(record: Record) -> dict:
+    def projection(self, columns: set[str]) -> 'Record':
         root = {}
 
         for name in columns:
@@ -83,17 +75,22 @@ def projection(table: Table, columns: set[str]) -> Table:
                     node[item] = {}
                 node = node[item]
 
-            node[path[-1]] = record.get(name)
+            node[path[-1]] = self.get(name)
 
-        def dict_to_record(d: dict) -> Record:
-            return Record({
-                name: dict_to_record(value) if isinstance(value, dict) else value
-                for name, value in d.items()
-            })
+        return Record.from_dict(root)
 
-        return dict_to_record(root)
 
-    return Table(map(lambda r: create_record(r), table))
+Table = set[Record]
+Condition = Callable[[Record], bool]
+BiCondition = Callable[[Record, Record], bool]
+
+
+def select(table: Table, predicate: Condition) -> Table:
+    return Table(filter(predicate, table))
+
+
+def projection(table: Table, columns: set[str]) -> Table:
+    return Table(map(lambda r: r.projection(columns), table))
 
 
 def rename(table: Table, columns: dict[str, str]) -> Table:
@@ -138,6 +135,10 @@ def left_outer_join(left: Table, right: Table, condition: BiCondition) -> Table:
     )
 
 
+def order_by(table: Table, comparator: Callable[[Record, Record], int]) -> list[Record]:
+    return sorted(table, key=cmp_to_key(comparator))
+
+
 def create_employee(id: int, name: str, position: str, salary: int) -> Record:
     return Record(id=id, name=name, position=position, salary=salary)
 
@@ -168,9 +169,16 @@ if __name__ == '__main__':
         create_task(9, 3, False)
     }
 
-    employees_with_tasks = left_outer_join(employees, tasks, lambda left, right: left.id == right.employee_id)
-    employees_without_tasks = projection(select(employees_with_tasks, lambda r: r.right is None), columns={'left.id', 'left.name'})
-    renamed = rename(employees_without_tasks, {'left.id': 'id', 'left.name': 'name'})
+    result = sorted_employees = order_by(
+        projection(
+            rename(
+                left_outer_join(employees, tasks, lambda left, right: left.id == right.employee_id),
+                {'left.id': 'employee_id', 'left.name': 'name', 'right.id': 'task_id'}
+            ),
+            columns={'employee_id', 'task_id', 'name'}
+        ),
+        lambda left, right: left.employee_id - right.employee_id
+    )
 
-    for record in renamed:
-        print(record)
+    for record in result:
+        print(record.employee_id, record.task_id, record.name)

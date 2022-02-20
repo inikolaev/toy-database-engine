@@ -9,10 +9,12 @@ SQL is not supported, but implemented lower level API can be used to implement s
 You need to have Python 3.10 installed in order to run it. The main and only executable file is `main.py`. There's nothing fancy, it's just runs a predefined query against two tables which should be equvalent to the following SQL:
 
 ```sql
-select "left".id id
+select "left".id employee_id
+     , "right".id task_id
      , "left".name name
   from employees "left" 
   left outer join tasks "right"
     on "left".id = "right".employee_id
- where "right".employee_id is null   
+ where "right".employee_id is null
+ order by "left".id asc
 ```
