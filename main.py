@@ -5,7 +5,7 @@ from typing import Callable, Optional, Any
 class Record(dict):
     def __init__(self, *args, aliases: Optional[dict[str, str]] = None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.__hash = hash(tuple(self.items()))
+        self.__hash = hash(tuple(sorted(self.items())))
         self.__aliases = {} if aliases is None else dict(aliases)
         self.__aliases_to_columns = {
             alias: column
