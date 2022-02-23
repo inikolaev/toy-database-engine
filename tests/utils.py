@@ -1,4 +1,4 @@
-from main import Record
+from database_engine import Record
 
 
 def create_employee(id: int, name: str, position: str, salary: int) -> Record:

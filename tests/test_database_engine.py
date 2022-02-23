@@ -1,4 +1,5 @@
-from main import Table, select, create_employee, projection, Record, rename, inner_join, left_outer_join
+from database_engine import select, create_employee, projection, rename, inner_join, left_outer_join
+from models import Table, Record
 
 
 def test_select_all(employees: Table):
