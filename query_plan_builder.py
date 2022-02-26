@@ -53,6 +53,7 @@ class ScanNode(Node):
 
 
 class JoinType(Enum):
+    CARTESIAN_JOIN = 'cartesian_join'
     INNER_JOIN = 'inner_join'
     LEFT_OUTER_JOIN = 'left_outer_join'
 
