@@ -21,6 +21,11 @@ select "left".id employee_id
 
 ## Database Components
 
+```mermaid
+  graph LR;
+      SQL[SQL]-->P[SQL Parser]-->AST[SQL AST]-->QPB[Query Plan Builder]-->QP[Query Plan]-->A[Database Engine]-->B[Storage Engine];
+```
+
 Current database consist of the following components:
 
 * **database engine** - implements primitives to query tables, filter and join with other tables
