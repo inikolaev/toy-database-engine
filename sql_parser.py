@@ -34,8 +34,8 @@ class Select:
         self,
         select_list: list[str],
         select_from: list[str],
-        join: list[tuple[str, str, list]],
-        where: list[tuple[str, str, str]]
+        join: list[tuple[str, str, tuple]],
+        where: tuple
     ):
         self.select_list = select_list
         self.select_from = select_from
@@ -119,6 +119,12 @@ def read_until_white_space(s: str, position: int) -> tuple[str, int]:
     return value, position
 
 
+def read_until_white_space_or_bracket(s: str, position: int) -> tuple[str, int]:
+    value, position = read_until([' ', '\t', '\n', '\r', ')', '('], s, position)
+    position = skip_white_spaces(s, position)
+    return value, position
+
+
 def read_until_separator(s: str, position: int) -> tuple[str, int]:
     return read_until([',', ' ', '\t', '\n', '\r'], s, position)
 
@@ -133,11 +139,12 @@ def read_keyword(keyword: str, s: str, position: int) -> tuple[Keyword, int]:
 
 
 def read_keywords(keywords: list[str], s: str, position: int) -> tuple[Keyword, int]:
-    s = s[position:].lower()
+    t = s[position:].lower()
 
     for keyword in keywords:
-        if s.startswith(keyword):
-            return Keyword(keyword), position + len(keyword)
+        if t.startswith(keyword):
+            position = skip_white_spaces(s, position + len(keyword))
+            return Keyword(keyword), position
 
     raise InvalidTokenError(f'Invalid token at position {position}: expected keywords "{keywords}"')
 
@@ -196,9 +203,9 @@ def read_join(s: str, position: int) -> tuple[list, int]:
     return [('join', value, conditions)], position
 
 
-def read_where(s: str, position: int) -> tuple[list, int]:
+def read_where(s: str, position: int) -> tuple[tuple | None, int]:
     if not s[position:].lower().startswith('where'):
-        return [], position
+        return None, position
 
     _, position = read_keyword('where', s, position)
     conditions, position = read_conditions(s, position)
@@ -206,20 +213,55 @@ def read_where(s: str, position: int) -> tuple[list, int]:
     return conditions, position
 
 
-def read_conditions(s: str, position: int) -> tuple[list, int]:
-    conditions = []
+def read_conditions(s: str, position: int) -> tuple[tuple, int]:
+    operands = []
+    operators = []
     while position < len(s):
+        if s[position] == '(':
+            operators.append('(')
+            position = skip_white_spaces(s, position + 1)
+
         left, position = read_until_white_space(s, position)
         operator, position = read_until_white_space(s, position)
-        right, position = read_until_white_space(s, position)
+        right, position = read_until_white_space_or_bracket(s, position)
 
-        conditions.append((left, operator, right))
+        condition = (left, operator, right)
+        operands.append(condition)
 
-        if not any(s[position:].lower().startswith(op) for op in ('and',)):
+        if position < len(s) and s[position] == ')':
+            position = skip_white_spaces(s, position + 1)
+            while len(operators) > 0 and operators[-1] != '(':
+                boolean_operator = operators.pop()
+                right_condition = operands.pop()
+                left_condition = operands.pop()
+                operands.append((boolean_operator, left_condition, right_condition))
+            operators.pop()
+
+        if re.match(r'^(and|or)', s[position:], re.IGNORECASE) is None:
             break
 
-        keyword, position = read_keyword('and', s, position)
+        keyword, position = read_keywords(['and', 'or'], s, position)
+        boolean_operator = keyword.value
+
+        while len(operators) > 0 and operators[-1] == 'and' and boolean_operator == 'or':
+            last_boolean_operator = operators.pop()
+
+            if last_boolean_operator == '(':
+                break
+
+            right_condition = operands.pop()
+            left_condition = operands.pop()
+            operands.append((last_boolean_operator, left_condition, right_condition))
+
+        operators.append(boolean_operator)
+
+    while len(operators) > 0:
+        boolean_operator = operators.pop()
+        right_condition = operands.pop()
+        left_condition = operands.pop()
+        operands.append((boolean_operator, left_condition, right_condition))
+
+    conditions = operands.pop()
 
     position = skip_white_spaces(s, position)
     return conditions, position
-

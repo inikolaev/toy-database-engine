@@ -32,5 +32,6 @@ Current database consist of the following components:
 * **storage engine** - there's no separate component, right now database engine plays the role of storage engine as well
 * **query plan builder** - component that is used to build a **query plan**
 * **query plan executor** - uses **database engine** to execute a **query plan**
-* _**sql parser**_ - parses SQL and produces AST (_not implemented_) which should then be converted to a **query plan**
+* **SQL parser** - parses SQL and produces AST
+* _**SQL to query plan converter**_ - converts SQL AST into a *query plan* (_not implemented_)
 * _**query plan optimizer**_ - analyze and optimize **query plan** (_not implemented_). Don't really know if it should be applied to SQL AST or the **query plan**.
