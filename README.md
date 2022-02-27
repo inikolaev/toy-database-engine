@@ -18,3 +18,14 @@ select "left".id employee_id
  where "right".employee_id is null
  order by "left".id asc
 ```
+
+## Database Components
+
+Current database consist of the following components:
+
+* **database engine** - implements primitives to query tables, filter and join with other tables
+* **storage engine** - there's no separate component, right now database engine plays the role of storage engine as well
+* **query plan builder** - component that is used to build a **query plan**
+* **query plan executor** - uses **database engine** to execute a **query plan**
+* _**sql parser**_ - parses SQL and produces AST (_not implemented_) which should then be converted to a **query plan**
+* _**query plan optimizer**_ - analyze and optimize **query plan** (_not implemented_). Don't really know if it should be applied to SQL AST or the **query plan**.
